@@ -1,10 +1,15 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.database import Base, engine
+
 from app.models.user import User
 from app.models.patient import Patient
+
 from app.routes.auth import router as auth_router
 from app.routes.patient import router as patient_router
+from app.routes.screening import router as screening_router
+
 from app.dependencies.auth import get_current_user, require_role
 
 
@@ -19,11 +24,26 @@ app = FastAPI(
 )
 
 
+# Allow requests from React frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # Register authentication routes
 app.include_router(auth_router)
 
 # Register patient routes
 app.include_router(patient_router)
+
+# Register screening routes
+app.include_router(screening_router)
 
 
 @app.get("/")
@@ -49,7 +69,6 @@ def database_test():
                 "status": "success",
                 "message": "MySQL database connected successfully"
             }
-
     except Exception as e:
         return {
             "status": "error",
