@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.database.database import Base
@@ -17,7 +17,7 @@ class Patient(Base):
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
-        nullable=False,
+        nullable=True,
         unique=True
     )
 
@@ -26,6 +26,11 @@ class Patient(Base):
         unique=True,
         nullable=False,
         index=True
+    )
+
+    name = Column(
+        String(150),
+        nullable=True
     )
 
     date_of_birth = Column(
@@ -50,6 +55,16 @@ class Patient(Base):
 
     emergency_contact = Column(
         String(100),
+        nullable=True
+    )
+
+    diabetes_type = Column(
+        String(50),
+        nullable=True
+    )
+
+    medical_history = Column(
+        Text,
         nullable=True
     )
 

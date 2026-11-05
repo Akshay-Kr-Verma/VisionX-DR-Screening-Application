@@ -1,22 +1,36 @@
 from datetime import date
-
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 
 class PatientProfileCreate(BaseModel):
-    date_of_birth: date | None = None
-    gender: str | None = None
-    phone: str | None = None
-    address: str | None = None
-    emergency_contact: str | None = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    emergency_contact: Optional[str] = None
+
+
+class StaffPatientCreate(BaseModel):
+    name: str
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    address: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    diabetes_type: Optional[str] = None
+    medical_history: Optional[str] = None
 
 
 class PatientProfileResponse(BaseModel):
     patient_id: str
     name: str
-    email: str
-    date_of_birth: date | None
-    gender: str | None
-    phone: str | None
-    address: str | None
-    emergency_contact: str | None
+    email: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    emergency_contact: Optional[str] = None
+    diabetes_type: Optional[str] = None
+    medical_history: Optional[str] = None

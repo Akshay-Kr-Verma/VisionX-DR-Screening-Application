@@ -18,6 +18,59 @@ router = APIRouter(
 )
 
 
+def _generate_next_patient_id(db: Session) -> str:
+    """Generate a unique sequential patient ID like P-000007."""
+    all_patients = db.query(Patient.patient_id).all()
+    max_num = 0
+    for (pid,) in all_patients:
+        if pid and pid.startswith("P-"):
+            try:
+                num = int(pid[2:])
+                if num > max_num:
+                    max_num = num
+            except ValueError:
+                pass
+    return f"P-{max_num + 1:06d}"
+
+
+# ============================================================
+# DEMO USERS HELPER (Quick login & testing)
+# ============================================================
+
+@router.get("/demo-users")
+def get_demo_users():
+    return [
+        {
+            "role": "admin",
+            "name": "System Administrator",
+            "email": "admin@visionx.com",
+            "password": "admin123",
+            "badge": "Full Access / Management"
+        },
+        {
+            "role": "doctor",
+            "name": "Dr. Sarah Chen, MD",
+            "email": "doctor@visionx.com",
+            "password": "doctor123",
+            "badge": "Priority Triage & Clinical Notes"
+        },
+        {
+            "role": "staff",
+            "name": "Alex Miller",
+            "email": "staff@visionx.com",
+            "password": "staff123",
+            "badge": "Patient Reg & Retinal Screening"
+        },
+        {
+            "role": "patient",
+            "name": "John Doe",
+            "email": "patient@visionx.com",
+            "password": "patient123",
+            "badge": "Patient Records & PDF Reports"
+        }
+    ]
+
+
 # ============================================================
 # REGISTER
 # ============================================================
@@ -27,11 +80,6 @@ def register_user(
     user_data: RegisterRequest,
     db: Session = Depends(get_db)
 ):
-
-    # --------------------------------------------------------
-    # Check whether email already exists
-    # --------------------------------------------------------
-
     existing_user = db.query(User).filter(
         User.email == user_data.email
     ).first()
@@ -42,17 +90,9 @@ def register_user(
             detail="Email already registered"
         )
 
-    # --------------------------------------------------------
-    # Hash password
-    # --------------------------------------------------------
-
     hashed_password = hash_password(
         user_data.password
     )
-
-    # --------------------------------------------------------
-    # Create user
-    # --------------------------------------------------------
 
     new_user = User(
         name=user_data.name,
@@ -64,55 +104,37 @@ def register_user(
     db.add(new_user)
 
     try:
-
-        # Flush gives us new_user.id without
-        # committing the transaction yet.
         db.flush()
 
-        # ----------------------------------------------------
-        # Automatically create patient profile
-        # ----------------------------------------------------
-
-        patient_id = f"P-{new_user.id:06d}"
+        patient_id = _generate_next_patient_id(db)
 
         new_patient = Patient(
             user_id=new_user.id,
-            patient_id=patient_id
+            patient_id=patient_id,
+            name=new_user.name
         )
 
         db.add(new_patient)
-
-        # ----------------------------------------------------
-        # Commit both records
-        # ----------------------------------------------------
-
         db.commit()
 
         db.refresh(new_user)
         db.refresh(new_patient)
 
-    except Exception:
+    except Exception as e:
         db.rollback()
-
         raise HTTPException(
             status_code=500,
-            detail="Unable to create patient account"
+            detail=f"Unable to create patient account: {str(e)}"
         )
-
-    # --------------------------------------------------------
-    # Return registration result
-    # --------------------------------------------------------
 
     return {
         "message": "Patient registered successfully",
-
         "user": {
             "id": new_user.id,
             "name": new_user.name,
             "email": new_user.email,
             "role": new_user.role
         },
-
         "patient": {
             "patient_id": new_patient.patient_id
         }
@@ -128,18 +150,9 @@ def login_user(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-
-    # --------------------------------------------------------
-    # Find user
-    # --------------------------------------------------------
-
     user = db.query(User).filter(
         User.email == login_data.email
     ).first()
-
-    # --------------------------------------------------------
-    # Verify credentials
-    # --------------------------------------------------------
 
     if not user or not verify_password(
         login_data.password,
@@ -150,49 +163,30 @@ def login_user(
             detail="Invalid email or password"
         )
 
-    # --------------------------------------------------------
-    # Create JWT
-    # --------------------------------------------------------
-
     access_token = create_access_token(
         user_id=user.id,
         role=user.role
     )
 
-    # --------------------------------------------------------
-    # Get patient information if applicable
-    # --------------------------------------------------------
-
     patient_data = None
-
-    if user.role == "patient":
-
-        patient = db.query(Patient).filter(
-            Patient.user_id == user.id
-        ).first()
-
-        if patient:
-            patient_data = {
-                "patient_id": patient.patient_id
-            }
-
-    # --------------------------------------------------------
-    # Return login response
-    # --------------------------------------------------------
+    if user.patient:
+        patient_data = {
+            "id": user.patient.id,
+            "patient_id": user.patient.patient_id,
+            "name": user.patient.name,
+            "phone": user.patient.phone,
+            "gender": user.patient.gender
+        }
 
     return {
         "message": "Login successful",
-
         "access_token": access_token,
-
         "token_type": "bearer",
-
         "user": {
             "id": user.id,
             "name": user.name,
             "email": user.email,
             "role": user.role
         },
-
         "patient": patient_data
     }
